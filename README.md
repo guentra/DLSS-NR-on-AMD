@@ -1,24 +1,23 @@
 # DLSS-NR on AMD for Linux
 
-Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux through Wine/Proton. **Steam is optional.**
+Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux through Wine/Proton.
 
 **Experimental:** installation can succeed even if rendering does not work correctly in your game.
 
 ## Install
 
-1. Close the game.
-2. [Download **`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.2.1) — not the “Source code” archive.
-3. Extract it into the game folder. Open a terminal in the extracted `dlssnr-linux-portable` subfolder and run:
+1. [Download **`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.2.1) ²
+2. Extract it into the game folder. Open a terminal in the extracted `dlssnr-linux-portable` subfolder and run:
 
    ```sh
    ./install.sh
    ```
 
-4. Follow the wizard. It detects the game, asks which Wine/Proton version you use, and offers to install ROCm if needed.
-5. Copy the launch command it prints into your launcher:
+3. Follow the wizard. It detects the game, asks which Wine/Proton version you use, and offers to install ROCm if needed.
+4. Copy the launch command it prints into your launcher:
    - **Steam:** paste **Steam launch options** into **Properties → General → Launch Options**. Select the same Proton in **Compatibility**.
    - **Lutris / another launcher:** paste **Command prefix** into its command-prefix field, without `%command%`. Keep your existing Wine/Proton version and prefix.
-6. Launch the game, enable **FSR** in its graphics settings, and press **End** for the mod menu. FSR is the hook; neural rendering is provided by DLSS-NR.
+5. Launch the game, enable **FSR** in its graphics settings, and press **End** for the mod menu. FSR is the hook; neural rendering is provided by DLSS-NR.
 
 **Already have `nvngx_dlssnr.dll`?** Copy your legitimately obtained **version 310.8.0.0** into the game folder before running the installer. It is detected automatically. Existing converted weights are also accepted. Neither is included in the download.
 
