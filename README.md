@@ -92,21 +92,38 @@ Use the rendering executable, not a launcher, crash reporter or browser helper. 
 
 A reported mod v0.2.11 run loaded HIP and the NR engine, but logged `unsupported colour format 67` / `setup failed; idle`, access violations and kernel GPU MES/TLB failures. This is NOT a working NR configuration. The exact crash cause is not established and no rendering fix is validated. Do not keep retrying the same configuration after GPU faults. Installation integrity does not establish game compatibility.
 
-## ROCm and persistent caches
+## ROCm setup
 
-An existing HIP7 runtime is preferred. If unavailable, authorize the pinned official AMD wheel:
+**No separate ROCm installation step is needed before running `./install.sh`.** The wizard checks for a compatible HIP7 runtime:
+
+- **Already installed:** it uses that runtime.
+- **Not available:** it asks permission to download and install one in your user account. Allow **3 GiB of free disk space**. No `sudo` or changes to system Python are needed.
+
+Your AMD kernel driver must already work, and your account must have access to `/dev/kfd` and the GPU render devices. The installer cannot fix driver or device-permission problems.
+
+<details>
+<summary>Optional: check or install ROCm separately</summary>
+
+These commands are for manual setup or troubleshooting, not extra required installation steps:
 
 ```sh
-./install.sh runtime --install-rocm
-# Optional actual GPU memory-copy test:
-./install.sh runtime --self-test
+./install.sh runtime                # Check the existing runtime
+./install.sh runtime --install-rocm # Allow a download if no compatible runtime is found
+./install.sh runtime --self-test    # Optional GPU memory-copy test
 ```
 
-The wheel is `rocm-sdk-core 7.14.0a20260612` from `rocm.nightlies.amd.com`, checked against a pinned SHA256 and installed in an isolated user environment. Allow at least **3 GiB free disk space**. It is a nightly, not a guarantee across distributions. Nothing installs a kernel driver, uses sudo, changes system Python or aliases an incompatible HIP major version. Missing `/dev/kfd` or render permissions must be fixed at the OS level.
+</details>
 
-`--data-dir` moves managed ROCm and conversion caches, **not** the shared native bridge cache. That lives in `$XDG_DATA_HOME/dlssnr-linux/native/`, defaulting to `~/.local/share/dlssnr-linux/native/`. XDG_DATA_HOME must be absolute, private, and contain **no whitespace or colons**, because LD_PRELOAD cannot quote these separators. Ordinary game paths with spaces are supported. Mount paths cannot contain colons or newlines. Do not move active caches after installing; reinstall affected games if paths change.
+<details>
+<summary>Advanced: runtime version and storage locations</summary>
 
-The extracted installer is not a runtime dependency after installation. On another PC, extract the same archive and rerun the installer: do not copy a generated launch wrapper containing another machine's paths.
+- The download is AMD's `rocm-sdk-core 7.14.0a20260612` wheel from `rocm.nightlies.amd.com`, verified against a pinned SHA256. It is a nightly build; compatibility with every distribution is not guaranteed.
+- Installer-managed runtime and support files default to `~/.local/share/dlssnr-linux/` (or `$XDG_DATA_HOME/dlssnr-linux/`). **Keep these files after installation.** `--data-dir` changes where managed ROCm and converted weights are stored; it does not move the native bridge under `$XDG_DATA_HOME/dlssnr-linux/native/`.
+- If you customize `XDG_DATA_HOME`, use an absolute, user-owned path without whitespace or colons. Game paths may contain spaces, but mount paths cannot contain colons or newlines. Reinstall affected games if you move their runtime or support files.
+
+With default paths, the extracted installer folder is not needed to run an installed game. On another PC, rerun the installer to generate the correct local paths instead of copying a game's `launch.sh`.
+
+</details>
 
 ## Status and uninstall
 
