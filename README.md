@@ -68,10 +68,33 @@ Replace the example paths with your own:
 
 Keep the quoting. The installer does not modify Steam configuration, shared Proton, saves, display settings or other games. It installs local DLLs, the NR INI and a per-game `.dlssnr-linux/` directory. NR is explicitly configured with **Enabled=1, Inline=1, Interop=1**. Enable FSR in the game as the mod's injection hook, not as a substitute upscaler. Press **End** for the mod menu.
 
-## Reported game limitations
+## Troubleshooting
 
-- **Stellar Blade:** `SB.exe` is an Unreal bootstrap, not the rendering executable. Its embedded target is `SB/Binaries/Win64/SB-Win64-Shipping.exe`. If that file is missing, use Steam > Properties > Installed Files > Verify integrity of game files. Do not bypass the version.dll check or install beside the bootstrap. The installer now reads the actual bootstrap resource and excludes crash/CEF helper executables.
-- **Resident Evil Requiem:** a reported v0.2.11 run loaded HIP and the NR engine, but logged `unsupported colour format 67` / `setup failed; idle`, access violations and kernel GPU MES/TLB failures. This is NOT a working NR configuration. The exact crash cause is not established and no rendering fix is validated. Do not keep retrying the same configuration after GPU faults. Installation integrity does not establish game compatibility.
+### Game executable not detected or multiple executables found
+
+If automatic detection cannot find the game's executable or reports multiple candidates, select the actual game executable explicitly with `--exe`:
+
+```sh
+./install.sh install --exe '/path/to/game/Game.exe'
+```
+
+Use the rendering executable, not a launcher, crash reporter or browser helper. Keep paths containing spaces quoted. `--exe` selects the file; it does not bypass compatibility checks.
+
+### Stellar Blade
+
+**Executable detection was fixed in installer v0.1.1.** The installer recognizes the `SB.exe` Unreal bootstrap, resolves its embedded game path and ignores crash-report/CEF helpers. This was an installer detection issue, not a confirmed rendering incompatibility.
+
+If detection still fails, select the game executable directly:
+
+```sh
+./install.sh install --exe '/path/to/StellarBlade/SB/Binaries/Win64/SB-Win64-Shipping.exe'
+```
+
+If `SB-Win64-Shipping.exe` is missing, use Steam > Properties > Installed Files > Verify integrity of game files. Do not install the mod beside the root `SB.exe` launcher or bypass the `version.dll` check. Successful executable detection does not establish in-game rendering compatibility.
+
+### Resident Evil Requiem
+
+A reported mod v0.2.11 run loaded HIP and the NR engine, but logged `unsupported colour format 67` / `setup failed; idle`, access violations and kernel GPU MES/TLB failures. This is NOT a working NR configuration. The exact crash cause is not established and no rendering fix is validated. Do not keep retrying the same configuration after GPU faults. Installation integrity does not establish game compatibility.
 
 ## ROCm and persistent caches
 
@@ -112,3 +135,7 @@ python3 -B build_release.py --components-root /path/to/extracted/dlssnr-linux-po
 ```
 
 The deterministic builder checks the pinned binary hashes and uses an explicit file allowlist. It excludes private logs, proof environments, Python caches, NVIDIA DLLs and weights. A checksum is not a signature or a license grant. Third-party rights remain with their respective owners; the upstream mod has no identified redistribution license. See `THIRD-PARTY.md`, `PROVENANCE.json` and the release archive's `sources/README.md` for notices and limitations.
+
+## Legal
+
+This project is not affiliated with or endorsed by NVIDIA or AMD. DLSS is a trademark of NVIDIA Corporation. The software here contains no NVIDIA code or data; it requires the user's own legitimately obtained copy of the DLSS 5 DLL. Provided as-is, without warranty; use at your own risk, your computer may explode or worse
