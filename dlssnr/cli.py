@@ -25,13 +25,16 @@ def parser():
         command = commands.add_parser(name)
         command.add_argument('--appid', help='Exact Steam application ID')
         command.add_argument('--exe', type=Path, help='Game Windows x64 executable')
+        command.add_argument('--game-dir', type=Path, help='Game directory (default: directory containing install.sh)')
         command.add_argument('--steam-root', type=Path)
         command.add_argument('--json', action='store_true', help='Machine-readable JSON output')
         if name == 'uninstall':
             command.add_argument('--yes', action='store_true', help='Confirm restoring original files')
         if name in ('install', 'doctor'):
-            command.add_argument('--proton', type=Path, help='Proton distribution directory')
-            command.add_argument('--confirm-proton', action='store_true', help='Confirm this Proton is selected in Steam')
+            command.add_argument('--runner', '--proton', dest='proton', type=Path,
+                                 help='Installed Wine/Proton runner directory used by this game')
+            command.add_argument('--confirm-runner', '--confirm-proton', dest='confirm_proton', action='store_true',
+                                 help='Confirm this runner is used by your launcher or Wine command')
             command.add_argument('--gpu', help='HIP index or exact GPU name')
             command.add_argument('--hip-library', type=Path, help='Existing HIP7 library or SDK directory')
             command.add_argument('--data-dir', type=Path, help='Persistent user-local runtime/cache directory')
@@ -41,6 +44,8 @@ def parser():
             inputs.add_argument('--nvidia-dll', type=Path, help='Your legally obtained nvngx_dlssnr.dll (310.8.0.0)')
             command.add_argument('--accept-risk', action='store_true', help='Accept experimental injection risks')
             command.add_argument('--replace-existing', action='store_true', help='Back up and replace conflicting DLLs')
+            command.add_argument('--allow-unconfirmed-loader', action='store_true',
+                                 help='Allow installation without static evidence of mod loading; activation remains unverified')
             command.add_argument('--dry-run', action='store_true', help='No writes, downloads or conversion')
     command = commands.add_parser('runtime', help='Check or install a user-local HIP7 runtime')
     command.add_argument('--hip-library', type=Path)
@@ -79,26 +84,40 @@ def select_gpu(devices, requested, interactive):
 def resolve_exe(args, interactive):
     if args.appid and (not args.appid.isascii() or not args.appid.isdecimal()):
         raise RuntimeError('--appid must be an exact numeric Steam ID.')
-    entries = games.discover_games(args.steam_root) if args.appid or not args.exe else []
     if args.appid:
+        if args.game_dir:
+            raise RuntimeError('--game-dir and --appid cannot be combined.')
+        entries = games.discover_games(args.steam_root)
         entries = [g for g in entries if g['appid'] == args.appid]
         if len(entries) != 1:
             raise RuntimeError('AppID missing or ambiguous; use --steam-root or --exe without --appid.')
         return games.select_executable(entries[0]['path'], args.exe)
-    if args.exe:
+    if args.exe and not args.game_dir:
         path = args.exe.expanduser().absolute()
         if path.is_symlink():
             raise RuntimeError('The game executable must not be a symlink.')
         return games.select_executable(path.parent, path)
-    if interactive:
-        if entries:
-            game = choose(entries, 'Steam game', lambda g: f"{g['name']} [{g['appid']}]")
-            return games.select_executable(game['path'])
-        entered = input('Game .exe path (empty to cancel): ').strip()
+    root = args.game_dir.expanduser().absolute() if args.game_dir else PACKAGE_ROOT
+    # The release may be extracted as a subfolder instead of flattened into the game.
+    # Never climb arbitrary ancestors or search the user's other games implicitly.
+    if not args.game_dir and root.name == 'dlssnr-linux-portable':
+        root = root.parent
+    try:
+        return games.select_executable(root, args.exe)
+    except RuntimeError as exc:
+        if not interactive or args.exe or not str(exc).startswith(('No PE x64 executable found', 'Multiple possible executables')):
+            raise
+        print(str(exc))
+        candidates = games.find_executables(root)
+        if candidates:
+            selected = choose(candidates, 'Game executable', lambda p: str(p.relative_to(root)))
+            return games.select_executable(root, selected)
+        entered = input('Game directory or .exe path (empty to cancel): ').strip()
         if entered:
-            args.exe = Path(entered).expanduser().absolute()
-            return resolve_exe(args, False)
-    raise RuntimeError('Specify --exe /path/game.exe or --appid ID; see --help.')
+            path = Path(entered).expanduser().absolute()
+            return games.select_executable(path if path.is_dir() else path.parent,
+                                           None if path.is_dir() else path)
+    raise RuntimeError('Specify --game-dir /path/game or --exe /path/game.exe; Steam lookup is optional with --appid ID.')
 
 
 def require(accepted, interactive, question, flag):
@@ -132,6 +151,20 @@ def check_host(manifest):
 def resolve_proton(args, interactive):
     if args.proton:
         return games.validate_proton(args.proton)
+    if interactive:
+        print('Enter the Wine/Proton runner directory used by this game.\n\n'
+              'Examples:\n'
+              '  Steam:  ~/.local/share/Steam/compatibilitytools.d/GE-Proton...\n'
+              '  Lutris: ~/.local/share/lutris/runners/wine/wine-ge-...\n\n'
+              "Select the runner's folder, not its bin/wine executable.\n"
+              'Type "steam" to list Steam runners, or leave empty to cancel.\n')
+        entered = input('Runner directory: ').strip()
+        if entered and entered.casefold() != 'steam':
+            return games.validate_proton(Path(entered).expanduser())
+        if not entered:
+            raise RuntimeError('No runner selected; specify --runner /path/to/runner.')
+    elif not args.appid and not args.steam_root:
+        raise RuntimeError('Specify --runner /path/to/runner (alias: --proton). Steam discovery is optional.')
     valid, errors = [], []
     for candidate in games.discover_protons(args.steam_root):
         try:
@@ -141,8 +174,8 @@ def resolve_proton(args, interactive):
     if len(valid) == 1:
         return valid[0]
     if valid and interactive:
-        return choose(valid, 'Proton (also select it in Steam)', lambda p: str(p['root']))
-    raise RuntimeError('Specify --proton /path/Proton; multiple candidates or none compatible.\n' + '\n'.join(errors))
+        return choose(valid, 'Runner (use the same one in your launcher)', lambda p: str(p['root']))
+    raise RuntimeError('Specify --runner /path/to/runner; multiple candidates or none compatible.\n' + '\n'.join(errors))
 
 
 def readonly_runtime(args):
@@ -194,8 +227,10 @@ def emit(result, args):
         print('Game:', result['game']['exe'])
         print('HIP:', result['runtime']['library'])
         print('GPU:', result['gpu']['name'])
-        print('Checked Proton:', result['proton']['root'])
-        print('Actual Steam selection and in-game rendering are NOT verified.')
+        print('Checked Wine/Proton runner:', result['proton']['root'])
+        for warning in result.get('warnings', []):
+            print('Warning:', warning)
+        print('Actual launcher/runner selection and in-game rendering are NOT verified.')
         return
     if result.get('dry_run'):
         print('Dry run completed; nothing installed.')
@@ -210,15 +245,21 @@ def emit(result, args):
     if result.get('gpu'):
         print('GPU:', result['gpu']['name'])
     if result.get('proton'):
-        print('Select this Proton in Steam:', result['proton'])
+        print('Use this Wine/Proton runner in your launcher:', result['proton'])
+    if result.get('command_prefix'):
+        print('Command prefix for Lutris / another launcher (no %command% outside Steam):')
+        print(result['command_prefix'])
+        print('Keep your existing runner, Wine prefix and game arguments; do not launch the .exe directly from Linux.')
     if result.get('launch_options'):
-        print('Steam launch options (copy carefully; preserve your unrelated existing options):')
+        print('Steam launch options (only if using Steam; preserve unrelated existing options):')
         print(result['launch_options'])
         print('NR install settings: Enabled=1 / Inline=1 / Interop=1. Enable FSR as the injection hook; End opens the mod menu.')
+    for warning in result.get('warnings', []):
+        print('Warning:', warning)
     for note in result.get('notes', []):
         print('-', note)
     if args.command == 'uninstall':
-        print('Remove the wrapper from Steam launch options manually. Shared ROCm/bridge caches are retained.')
+        print('Remove the wrapper from your launcher command prefix or Steam launch options. Shared ROCm/bridge caches are retained.')
 
 
 def main(argv=None):
@@ -273,30 +314,56 @@ def main(argv=None):
         manifest = assets.verify_assets(PACKAGE_ROOT)
         host = check_host(manifest)
         evidence = games.inspect_game(exe)
-        for key, explanation in (('version_loader', 'No static version.dll import found'),
-                                 ('dx12', 'No static DirectX 12 evidence found'),
+        for key, explanation in (('dx12', 'No static DirectX 12 evidence found'),
                                  ('fsr_evidence', 'No FSR/FidelityFX evidence found')):
             if not evidence[key]:
                 raise RuntimeError(explanation + '; automatic installation is not supported for this game.')
         if evidence['anti_cheat_evidence']:
             raise RuntimeError('Anti-cheat detected: refusing installation, no bypass. ' + ', '.join(evidence['anti_cheat_evidence']))
+        loader_warnings = [] if evidence['version_loader'] else [
+            'Mod loading is not confirmed by static imports. Dynamic loading may exist; '
+            'copying version.dll alone does not guarantee activation.']
         proton = resolve_proton(args, interactive)
         if args.command == 'doctor':
             rt = readonly_runtime(args)
             gpu = select_gpu(rt['devices'], args.gpu, interactive)
             report = {'host': host, 'game': evidence, 'proton': proton, 'runtime': rt, 'gpu': gpu,
-                      'gameplay_verified': False, 'steam_selection_verified': False}
+                      'gameplay_verified': False, 'steam_selection_verified': False, 'runner_selection_verified': False,
+                      'warnings': loader_warnings}
             if args.weights:
                 report['weights'] = assets.validate_weights(args.weights.expanduser())
             emit(report, args)
             return 0
-        require(args.confirm_proton, interactive, f"Have you selected {proton['root']} in the game's Steam compatibility settings?", '--confirm-proton')
+        if loader_warnings:
+            require(args.allow_unconfirmed_loader, interactive,
+                    loader_warnings[0] + ' Install anyway and verify mod loading in the game log?',
+                    '--allow-unconfirmed-loader')
+        if interactive:
+            print('Game executable:', exe)
+        require(args.confirm_proton, interactive,
+                f"Does your launcher or Wine command use {proton['root']} for this game?",
+                '--confirm-runner (alias: --confirm-proton)')
         require(args.accept_risk, interactive, 'Experimental injection may crash, render incorrectly or trigger anti-cheat. Continue?', '--accept-risk')
         if deploy.running_game(exe):
             raise RuntimeError('Close the game before installation.')
         rt = readonly_runtime(args) if args.dry_run else ensure_runtime(args, interactive)
         gpu = select_gpu(rt['devices'], args.gpu, interactive)
         weights = args.weights.expanduser() if args.weights else exe.parent / deploy.WEIGHTS
+        if not args.weights and not args.nvidia_dll and not weights.is_file():
+            roots = [exe.parent]
+            if exe.parent.name.lower() == 'win64' and exe.parent.parent.name.lower() == 'binaries':
+                roots.append(exe.parent.parent.parent.parent)
+            local_root = args.game_dir or (PACKAGE_ROOT.parent if PACKAGE_ROOT.name == 'dlssnr-linux-portable' else PACKAGE_ROOT)
+            local_root = local_root.expanduser().resolve()
+            if exe.is_relative_to(local_root):
+                roots.append(local_root)
+            for root in dict.fromkeys(roots):
+                candidate = root / 'nvngx_dlssnr.dll'
+                if candidate.is_file() and not candidate.is_symlink():
+                    args.nvidia_dll = candidate
+                    if not args.json:
+                        print('Detected NVIDIA DLL:', candidate)
+                    break
         if not args.weights and not args.nvidia_dll and not weights.is_file() and interactive:
             path = input('Path to your DLSSNRW1 weights file or nvngx_dlssnr.dll (empty to cancel): ').strip()
             if not path:
@@ -318,7 +385,9 @@ def main(argv=None):
             replace = True
         result = deploy.install_game(exe, PACKAGE_ROOT, rt, gpu, proton, weights,
                                      acknowledge_risk=True, replace_existing=replace, dry_run=args.dry_run)
-        emit(dict(result, exe=exe, gpu=gpu, proton=proton['root']), args)
+        emit(dict(result, exe=exe, gpu=gpu, proton=proton['root'],
+                  loader_evidence=evidence.get('loader_evidence', []),
+                  mod_loading_verified=False, warnings=loader_warnings), args)
         return 0
     except (RuntimeError, OSError, ValueError) as exc:
         print(f'Error: {exc}', file=sys.stderr)

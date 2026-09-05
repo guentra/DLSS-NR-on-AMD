@@ -1,32 +1,47 @@
 # DLSS-NR on AMD for Linux
 
-A per-game installer and Steam/Proton launch wrapper for [danielblnc's DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD), using upstream mod v0.2.11.
+A per-game installer and Wine/Proton launch wrapper for [danielblnc's DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD), using upstream mod v0.2.11. **Steam is optional.**
 
 This is experimental. Compatibility and rendering quality vary by game; a successful installation does not guarantee correct in-game rendering.
 
 ## Install
 
-1. Download **`dlssnr-linux-portable.tar.gz`** from [Releases](https://github.com/guentra/DLSS-NR-on-AMD/releases). Use this archive, not GitHub's "Source code" download. Extract it into a folder you own, outside the game directory.
-2. Close the game. Open a terminal in the extracted folder and run:
+1. Close the game. Download **`dlssnr-linux-portable.tar.gz`** from [Releases](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases), not GitHub's "Source code" download. Extract it **inside the game's directory**. Keep the archive's `dlssnr-linux-portable` subfolder to avoid overwriting unrelated game files.
+2. Open a terminal in that subfolder and run:
 
    ```sh
    ./install.sh
    ```
 
-3. Follow the wizard to choose the game, GPU, Proton and weights. It checks ROCm and asks permission to install a compatible runtime if needed. **You do not need to run a separate ROCm command or supply command-line arguments.**
-4. In **Steam > Properties > Compatibility**, select the same Proton you chose in the wizard. Paste the launch options printed by the installer into **Properties > General > Launch Options**, preserving any unrelated options you already use.
-5. Launch the game from Steam, enable **FSR** in its graphics settings, and press **End** to open the mod menu. FSR is the mod's injection point; neural rendering uses the upstream mod's kernels.
+3. The wizard detects the game in this directory, including Unreal's `Binaries/Win64` executable, and asks if there are multiple candidates. Choose your GPU and provide the **Wine/Proton runner directory already used by the game**, plus your weights or NVIDIA DLL. Enter `steam` at the runner prompt only if you want to list Steam's Proton installations. It checks ROCm and asks permission to install it if needed. **No Steam game search or separate ROCm command is required.**
+4. Add the printed wrapper to your usual launch method:
+   - **Lutris / another launcher with a command-prefix field:** use the printed **Command prefix**, without `%command%`. Keep the game's existing runner and Wine prefix.
+   - **Steam:** select the same Proton in **Properties > Compatibility**, then paste the printed **Steam launch options** into **Properties > General > Launch Options**.
+   - **Existing Wine shell command:** put the wrapper before the runner command; see the example below.
+5. Launch the game normally, enable **FSR** in its graphics settings, and press **End** to open the mod menu. FSR is the mod's injection point; neural rendering uses the upstream mod's kernels.
 
-The installer does not launch the game or change Steam settings for you. Run it again to install for another game or on another PC.
+The installer does not launch the game or edit launcher settings. It also works with the installer files directly beside the executable; the default is always relative to `install.sh`, not your terminal's working directory. To target a different location, use `--game-dir` or `--exe`.
+
+### Outside Steam
+
+No AppID, Steam library or Steam client is required. The game must already run through a compatible Wine/Proton runner. The installer checks the runner's `ntdll`, `win32u` and DXVK; ordinary or stripped Wine builds may be rejected. This is not a claim that every Lutris/Heroic/Bottles runner is compatible. Sandboxed launchers must be able to access the game, wrapper, native cache and ROCm runtime.
+
+For an existing, working Wine command, preserve its prefix, working directory and arguments, and insert the generated wrapper before Wine:
+
+```sh
+WINEPREFIX='/path/to/existing-prefix' '/path/to/game/.dlssnr-linux/launch.sh' '/path/to/runner/bin/wine' '/path/to/game/Game.exe'
+```
+
+Use the actual paths printed by the installer; Unreal's wrapper is beside the selected shipping executable. For Proton/UMU-managed games, keep the launcher's normal command instead of replacing it with raw Wine. A **pre-launch script** that runs and exits is not a command prefix: the wrapper must execute the runner so its environment reaches the game. Copying DLLs alone is insufficient on Linux.
 
 ## Requirements
 
 - Linux x86_64, Python 3.10+, Bash and glibc 2.34 or newer. No compiler is needed.
 - A supported AMD GPU. The bundled kernels target `gfx1100`, `gfx1101`, `gfx1102` and `gfx1201`.
 - A working AMD kernel driver and permission to access `/dev/kfd` and GPU render devices. The installer cannot install the driver or fix device permissions.
-- An installed, compatible Proton distribution. The wizard checks the distributions it finds; it does not download Proton.
+- An installed, compatible Wine/Proton runner. Supported directory layouts contain `files/bin/wine`, `dist/bin/wine` or `bin/wine`, plus the required x64 libraries. The wizard checks it; it does not download runners or create a game prefix.
 - A Windows x64 DirectX 12 game with FSR and a usable `version.dll` loading path. The installer refuses detected anti-cheat; it does not bypass it.
-- Your own legitimately obtained **`nvngx_dlssnr.dll` version 310.8.0.0**, or weights already converted to the `DLSSNRW1` format. Neither is included in the archive. The wizard asks for their location, or reuses weights already present beside the game's executable.
+- Your own legitimately obtained **`nvngx_dlssnr.dll` version 310.8.0.0**, or weights already converted to the `DLSSNRW1` format. Neither is included in the archive. Existing weights beside the executable are reused first. Otherwise, the installer automatically detects `nvngx_dlssnr.dll` beside the executable or at the game root (including Unreal games), verifies its hash and converts it without asking for its path. Explicit `--weights` / `--nvidia-dll` selections take priority. If nothing is found, the wizard asks for a path.
 
 If ROCm needs to be downloaded, allow **3 GiB of free disk space**. Downloads require your consent and stay in your user account; do not run the installer with `sudo`.
 
@@ -67,10 +82,11 @@ Use `./install.sh install` followed by whichever arguments you need. In a termin
 
 | Argument | Purpose |
 | --- | --- |
+| `--game-dir PATH` | Search this game directory rather than the directory containing the installer. |
 | `--exe PATH` | Select the actual game executable, not a launcher or crash reporter. |
 | `--appid ID` | Select a Steam game by its application ID. Add `--exe` if its executable is ambiguous. |
 | `--steam-root PATH` | Search a different Steam installation. |
-| `--proton PATH` | Select an installed Proton distribution directory. You must also select it in Steam. |
+| `--runner PATH` | Select the installed Wine/Proton runner used by your launcher. `--proton` remains an alias. |
 | `--gpu INDEX_OR_NAME` | Select a HIP device index or exact GPU name. |
 | `--weights PATH` | Use an existing `DLSSNRW1` weights file. |
 | `--nvidia-dll PATH` | Convert your NVIDIA DLL instead. Do not combine this with `--weights`. |
@@ -88,9 +104,10 @@ Use `./install.sh install` followed by whichever arguments you need. In a termin
 | Argument | Purpose |
 | --- | --- |
 | `--dry-run` | Simulate deployment without writing, downloading or converting. Requires an existing runtime and converted weights. |
-| `--confirm-proton` | Confirm that you selected the same Proton in Steam. This does not change Steam settings. |
+| `--confirm-runner` | Confirm that your launcher/command uses the checked runner. `--confirm-proton` remains an alias; neither changes launcher settings. |
 | `--accept-risk` | Accept the risks of experimental injection. |
 | `--replace-existing` | Back up and replace conflicting DLLs already in the game directory. |
+| `--allow-unconfirmed-loader` | Allow installation when static inspection cannot confirm how the mod will load. Activation must still be checked in the game log. |
 | `--json` | Return JSON and disable interactive prompts. |
 
 Quote paths containing spaces. For scripts or JSON output, supply the required choices and confirmations explicitly; the installer will not guess or consent on your behalf.
@@ -105,15 +122,17 @@ Point the installer at the actual game executable:
 ./install.sh install --exe '/path/to/game/Game.exe'
 ```
 
-The installer recognizes Unreal bootstrap launchers and ignores known crash-report/CEF helpers. If detection still fails, use the rendering executable, often under `Binaries/Win64`, rather than the root launcher. If the file is missing, use **Steam > Properties > Installed Files > Verify integrity of game files**.
+The installer recognizes Unreal bootstrap launchers and ignores known crash-report/CEF helpers and its own bundled assets. If detection still fails, use the rendering executable, often under `Binaries/Win64`, rather than the root launcher. If the file is missing, repair the installation in your launcher (Steam: **Properties > Installed Files > Verify integrity of game files**).
 
-`--exe` selects a file; it does not bypass compatibility checks. A `No static version.dll import found` error can mean you selected a launcher or that this game cannot be installed automatically.
+`--exe` selects a file; it does not bypass compatibility checks. You do not need a pre-existing `version.dll`: the installer supplies the mod's proxy. It follows imports through game dependencies, including Unreal's `Engine/` directories, rather than requiring the executable itself to import `version.dll`.
+
+If static inspection cannot confirm a loading path, `doctor` reports a warning. The wizard asks before proceeding; non-interactive installation requires `--allow-unconfirmed-loader` in addition to the usual confirmations. This permits installation, not guaranteed activation: check `dlssnr_on_amd.log` afterward. Do not simply rename the proxy to `winmm.dll` or `dxgi.dll`; those libraries require different exports.
 
 ### ROCm or Proton check fails
 
 - Missing `/dev/kfd` or inaccessible GPU devices: fix the AMD driver or device permissions at the OS level. Downloading another runtime will not fix this.
 - No compatible HIP7 runtime: accept the wizard's download offer, or use `runtime --install-rocm` manually.
-- Incompatible Proton: select a distribution that passes `list-protons`, then choose that same distribution in Steam. Passing these checks does not guarantee game compatibility.
+- Incompatible runner: supply a compatible distribution with `--runner`; for Steam, `list-protons` lists available candidates. Use the same runner in the launcher. Passing these checks does not guarantee game compatibility.
 
 ### Resident Evil Requiem
 
@@ -138,13 +157,13 @@ Close the game before uninstalling. Use the same game executable you installed f
 ./install.sh uninstall --exe '/path/to/game/Game.exe'
 ```
 
-Uninstall asks for confirmation; add `--yes` to confirm in advance. It restores backed-up originals, including the previous NR INI. **Remove the wrapper from Steam launch options afterward.**
+Uninstall asks for confirmation; add `--yes` to confirm in advance. It restores backed-up originals, including the previous NR INI. **Remove the wrapper from your launcher's command prefix or Steam launch options afterward.** With the installer still in the game directory, `./install.sh status` and `./install.sh uninstall` also use local detection.
 
 If files have changed since installation, uninstall refuses to overwrite them. Resolve the conflict instead of deleting the backups or transaction journal. Use uninstall to recover an interrupted installation. Shared runtime files remain available for other games.
 
 ## How the wrapper works
 
-Steam runs `.dlssnr-linux/launch.sh` before its normal `%command%`. The wrapper checks the bridge and HIP runtime hashes, exposes their paths to Steam's container, sets per-game GPU filters and DLL overrides, then forwards Steam's command and arguments unchanged.
+Your launcher runs `.dlssnr-linux/launch.sh` before its normal Wine/Proton command (Steam uses `%command%`). The wrapper checks the bridge and HIP runtime hashes, sets per-game GPU filters and DLL overrides, then forwards the original command and arguments unchanged. It preserves the existing Wine prefix and working directory. Steam container mounts are also supplied when applicable; they do not require Steam to be installed.
 
 Inside Proton, the mod's `version.dll` hooks FSR. A small `amdhip64_7.dll` trampoline passes Windows HIP calls to a Linux bridge loaded through `LD_PRELOAD`. The bridge loads ROCm when HIP is first needed. Patched vkd3d-proton DLLs provide the D3D12/Vulkan side of buffer sharing with HIP.
 

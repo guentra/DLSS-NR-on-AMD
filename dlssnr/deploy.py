@@ -28,7 +28,7 @@ HASH = re.compile(r'[0-9a-f]{64}\Z')
 NOTES = ['Injection requires explicit risk acceptance; no anti-cheat bypass.',
          'Native logs: .dlssnr-linux/logs/hip.log; PE logs retain legacy /tmp locations.',
          'Bridge cache is shared and retained on uninstall. LD_PRELOAD cache paths cannot contain whitespace or colon.',
-         'Select the validated Proton in Steam yourself; paste launch_options manually.']
+         'Use the validated Wine/Proton runner and existing prefix; set the command prefix in your launcher (or launch_options in Steam).']
 
 
 def _safe(path, *, directory=False, missing=False):
@@ -307,6 +307,9 @@ def _wrapper(exe, runtime, gpu, cache, bridge_hash=None):
         'VKD3D_LOG_FILE': 'Z:' + str(exe.parent / STORE / 'logs/vkd3d.log'),
     }
     lines = ['#!/bin/bash', 'set -e', '# Generated: no eval, no global Steam changes.']
+    lines += ['if (( $# == 0 )); then',
+              '  printf "%s\\n" "Usage: launch.sh RUNNER [ARGUMENTS...] (Steam: launch.sh %command%; other launchers: command prefix)." >&2',
+              '  exit 2', 'fi']
     # Check bytes before exporting LD_PRELOAD: ld.so otherwise ignores missing DSOs.
     for path, digest in ((cache, bridge_hash or _digest(cache)),
                          (Path(library), _digest(Path(library)))):
@@ -514,6 +517,7 @@ def _status(exe):
         if _digest(Path(data['cache'])) != bridge_hash:
             raise RuntimeError('Bridge cache changed')
         return {'installed': True, 'valid': True, 'pending': False, 'notes': list(NOTES),
+                'command_prefix': shlex.quote(str(store / 'launch.sh')),
                 'launch_options': shlex.quote(str(store / 'launch.sh')) + ' %command%'}
     except (RuntimeError, OSError) as exc:
         return {'installed': True, 'valid': False, 'pending': True,
@@ -584,6 +588,7 @@ def install_game(exe, package_root, runtime, gpu, proton, weights, *,
         data = {'schema': 1, 'exe': str(exe), 'state': 'preparing', 'files': files,
                 'request': request, 'cache': str(cache), 'undo': {}}
         result = {'installed': False, 'valid': False, 'dry_run': True, 'notes': list(NOTES),
+                  'command_prefix': shlex.quote(str(store / 'launch.sh')),
                   'launch_options': shlex.quote(str(store / 'launch.sh')) + ' %command%'}
         if dry_run:
             return result

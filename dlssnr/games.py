@@ -365,13 +365,15 @@ def pe_info(path):
 parse_pe = pe_info
 
 
-def _walk(root):
+def _walk(root, *, game_tree=False):
     """Bounded walk, no directory symlink traversal or escaped file targets."""
     root = Path(root).resolve()
     pending = [(root, 0)]
     count = 0
     while pending:
         folder, depth = pending.pop()
+        installer = game_tree and all((folder / name).is_file() for name in
+                                      ('install.sh', 'installer.py', 'dlssnr/cli.py'))
         try:
             with os.scandir(folder) as it:
                 for entry in it:
@@ -380,6 +382,10 @@ def _walk(root):
                         raise _error('Directory tree too large; explicitly select a game subdirectory.')
                     p = Path(entry.path)
                     if entry.is_dir(follow_symlinks=False):
+                        if game_tree and (entry.name == '.dlssnr-linux' or
+                                          (installer and entry.name in ('assets', 'native', 'sources', 'licenses', 'dlssnr', 'dist')) or
+                                          all((p / name).is_file() for name in ('install.sh', 'installer.py', 'dlssnr/cli.py'))):
+                            continue
                         if depth >= MAX_DEPTH:
                             raise _error('Directory tree too deep; select a game subdirectory.')
                         pending.append((p, depth+1))
@@ -408,14 +414,17 @@ def _executable(path):
 
 
 def find_executables(game_root):
-    return sorted((p for p in _walk(game_root) if _executable(p)), key=lambda p: str(p).lower())
+    return sorted((p for p in _walk(game_root, game_tree=True) if _executable(p)), key=lambda p: str(p).lower())
 
 
 def select_executable(game_root, explicit=None):
     root = Path(game_root).expanduser().resolve()
     if explicit is not None:
         p = Path(explicit).expanduser()
-        p = (p if p.is_absolute() else root/p).resolve()
+        p = p if p.is_absolute() else root/p
+        if p.is_symlink():
+            raise _error('The game executable must not be a symlink.')
+        p = p.resolve()
         if not p.is_relative_to(root) or not _executable(p):
             raise _error('Invalid executable or outside the game; specify a PE x64 .exe in the game directory.')
         return _bootstrap_target(p)
@@ -442,7 +451,7 @@ def _bootstrap_target(path):
         raise _error('Unreal bootstrap target is outside the game or symlinked.')
     if not actual.is_file():
         raise _error(f'{path.name} is only an Unreal bootstrap launcher. Missing game executable: {actual}. '
-                     'In Steam: Properties > Installed Files > Verify integrity of game files. '
+                     'Repair the game in your launcher (Steam: Properties > Installed Files > Verify integrity of game files). '
                      'Do not install the mod beside the bootstrap launcher.')
     if not _executable(actual) or pe_info(actual).get('bootstrap_path') is not None:
         raise _error('Unreal bootstrap target is not a valid game executable.')
@@ -457,32 +466,74 @@ def inspect_game(exe):
     info = pe_info(exe)
     if info['machine'] != 0x8664 or info['is_dll']:
         raise _error('The game must be a Windows PE x64 executable.')
-    imports = list(info['imports'])
+
     # Typical UE layout: <game>/<project>/Binaries/Win64/<shipping.exe>.
     evidence_root = exe.parent
     if exe.parent.name.lower() == 'win64' and exe.parent.parent.name.lower() == 'binaries':
         evidence_root = exe.parent.parent.parent.parent
     fsr, anti = [], set()
+    dll_index = {}
     signatures = {'easyanticheat': 'EasyAntiCheat', 'easy anti cheat': 'EasyAntiCheat',
                   'battleye': 'BattlEye', 'beservice': 'BattlEye', 'beclient': 'BattlEye',
                   'ricochet': 'Ricochet', 'randgrid': 'Ricochet', 'vgk': 'Vanguard',
                   'vanguard': 'Vanguard', 'equ8': 'EQU8', 'faceit': 'FACEIT',
                   'xigncode': 'XIGNCODE', 'nprotect': 'nProtect', 'anticheatexpert': 'AntiCheatExpert'}
-    for p in _walk(evidence_root):
+    for p in _walk(evidence_root, game_tree=True):
         name = p.name.lower()
-        if p.parent == exe.parent and p.suffix.lower() == '.dll':
-            try:
-                adjacent = pe_info(p)
-                if adjacent['machine'] == 0x8664 and adjacent['is_dll']:
-                    imports.extend(adjacent['imports'])
-            except RuntimeError:
-                pass
+        # Backups and our own installed proxy must not prove game compatibility.
+        if '.dlssnr-linux' in p.relative_to(evidence_root).parts:
+            continue
+        if p.is_file() and p.suffix.lower() == '.dll' and not p.is_symlink():
+            dll_index.setdefault(name, []).append(p)
         if any(s in name for s in ('fsr', 'fidelityfx', 'ffx_')):
             fsr.append(str(p))
         for pattern, label in signatures.items():
             if pattern in name:
                 anti.add(label)
-    imports = sorted(set(imports), key=str.lower)
+    # Follow imports, not every DLL found on disk. Unreal often stores imported
+    # modules under Engine/ rather than beside the shipping executable.
+    imports, loader_evidence, unresolved = set(), [], set()
+    pending = [(exe, info, [str(exe)])]
+    visited = set()
+    scheduled = {exe}
+    while pending:
+        current, metadata, chain = pending.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        if len(visited) > 512:
+            raise _error('Too many imported game DLLs for bounded inspection.')
+        for imported in metadata['imports']:
+            imports.add(imported)
+            name = imported.lower()
+            if name == 'version.dll':
+                loader_evidence.append(chain + [imported])
+                continue
+            candidates = dll_index.get(name, [])
+            local = [p for p in candidates if p.parent == current.parent]
+            application = [p for p in candidates if p.parent == exe.parent]
+            candidates = local or application or candidates
+            if len(candidates) != 1:
+                if candidates:
+                    unresolved.add(imported)
+                continue
+            dependency = candidates[0]
+            if dependency in scheduled:
+                continue
+            if len(chain) >= MAX_DEPTH:
+                unresolved.add(imported)
+                continue
+            if len(scheduled) >= 512:
+                raise _error('Too many imported game DLLs for bounded inspection.')
+            scheduled.add(dependency)
+            try:
+                dependency_info = pe_info(dependency)
+            except RuntimeError:
+                unresolved.add(imported)
+                continue
+            if dependency_info['machine'] == 0x8664 and dependency_info['is_dll']:
+                pending.append((dependency, dependency_info, chain + [str(dependency)]))
+    imports = sorted(imports, key=str.lower)
     lowered = {name.lower() for name in imports}
     for name in imports:
         low = name.lower()
@@ -491,7 +542,8 @@ def inspect_game(exe):
         for pattern, label in signatures.items():
             if pattern in low:
                 anti.add(label)
-    return dict(exe=exe, imports=imports, version_loader='version.dll' in lowered,
+    return dict(exe=exe, imports=imports, version_loader=bool(loader_evidence),
+                loader_evidence=loader_evidence, unresolved_dependencies=sorted(unresolved),
                 dx12=any(n == 'd3d12.dll' or n.startswith(('ffx_', 'amd_fidelityfx')) for n in lowered),
                 fsr_evidence=sorted(set(fsr)), anti_cheat_evidence=sorted(anti))
 
@@ -553,11 +605,11 @@ def _elf_symbols(path):
 
 def validate_proton(path):
     root = Path(path).expanduser().resolve()
-    advice = 'Choose a compatible Proton (CachyOS tested) in Steam and specify its path; no automatic downloads.'
+    advice = 'Choose a compatible Proton/Wine runner (CachyOS Proton tested) in your launcher and specify its path; no automatic downloads.'
     try:
-        base = next((root/layout for layout in ('files', 'dist') if (root/layout/'bin/wine').is_file()), None)
+        base = next((root/layout for layout in ('files', 'dist', '') if (root/layout/'bin/wine').is_file()), None)
         if base is None:
-            raise _error('Missing files/bin/wine or dist/bin/wine.')
+            raise _error('Missing files/bin/wine, dist/bin/wine or bin/wine in the runner directory.')
         files = list(_walk(base))
         def pick(name, marker):
             matches = [p for p in files if p.name.lower() == name and marker in p.parts]
