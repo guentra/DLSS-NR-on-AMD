@@ -88,18 +88,6 @@ If automatic detection cannot find the game's executable or reports multiple can
 
 Use the rendering executable, not a launcher, crash reporter or browser helper. Keep paths containing spaces quoted. `--exe` selects the file; it does not bypass compatibility checks.
 
-### Stellar Blade
-
-**Executable detection was fixed in installer v0.1.1.** The installer recognizes the `SB.exe` Unreal bootstrap, resolves its embedded game path and ignores crash-report/CEF helpers. This was an installer detection issue, not a confirmed rendering incompatibility.
-
-If detection still fails, select the game executable directly:
-
-```sh
-./install.sh install --exe '/path/to/StellarBlade/SB/Binaries/Win64/SB-Win64-Shipping.exe'
-```
-
-If `SB-Win64-Shipping.exe` is missing, use Steam > Properties > Installed Files > Verify integrity of game files. Do not install the mod beside the root `SB.exe` launcher or bypass the `version.dll` check. Successful executable detection does not establish in-game rendering compatibility.
-
 ### Resident Evil Requiem
 
 A reported mod v0.2.11 run loaded HIP and the NR engine, but logged `unsupported colour format 67` / `setup failed; idle`, access violations and kernel GPU MES/TLB failures. This is NOT a working NR configuration. The exact crash cause is not established and no rendering fix is validated. Do not keep retrying the same configuration after GPU faults. Installation integrity does not establish game compatibility.
