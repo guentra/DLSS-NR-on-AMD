@@ -202,13 +202,15 @@ def _weights(path):
     return {'bytes': size, 'sha256': _digest(path)}
 
 
-def _ini(data, index):
+def _ini(data, index, *, update=False):
     try:
         text = data.decode('utf-8')
     except UnicodeError as exc:
         raise RuntimeError('NR INI must be UTF-8') from exc
     newline = '\r\n' if '\r\n' in text else '\n'
     values = {'Enabled': '1', 'Inline': '1', 'Interop': '1', 'HipDevice': str(index)}
+    if update:
+        values = {'HipDevice': str(index)}
     lines = text.splitlines(keepends=True)
     start = None
     end = len(lines)
@@ -357,6 +359,11 @@ def _load(exe):
     if not (store / 'manifest.json').exists():
         raise RuntimeError('Missing transaction manifest; run uninstall to recover an empty claim, otherwise review store manually')
     data = _json(store / 'manifest.json')
+    return _validate_manifest(exe, data)
+
+
+def _validate_manifest(exe, data):
+    store = exe.parent / STORE
     def invalid():
         raise RuntimeError('Unsafe or tampered deployment manifest; refusing mutation')
     if type(data) is not dict or set(data) != {'schema', 'exe', 'state', 'files', 'request', 'cache', 'undo'}:
@@ -412,7 +419,7 @@ def _load(exe):
     return data
 
 
-def _verify(exe, data, *, uninstall=False):
+def _verify(exe, data, *, uninstall=False, allow_ini_changes=False):
     store = exe.parent / STORE
     for name, item in data['files'].items():
         target = _safe(exe.parent / name, missing=True)
@@ -432,6 +439,8 @@ def _verify(exe, data, *, uninstall=False):
         if data['state'] == 'installed':
             if uninstall and name == INI:
                 continue  # The native overlay routinely rewrites this file.
+            if allow_ini_changes and name == INI and current is not None:
+                continue  # Preserve mutable settings; never accept a missing/unsafe file.
             if current is not None and stat.S_IMODE(target.stat().st_mode) != item['mode']:
                 raise RuntimeError(f'Deployed file mode changed: {name}')
             allowed = {item['sha256']}
@@ -508,15 +517,22 @@ def _status(exe):
     if not store.exists() and not store.is_symlink():
         return {'installed': False, 'valid': False, 'pending': False, 'notes': [], 'launch_options': None}
     try:
+        if (store / 'update.json').exists() or (store / 'update').exists():
+            return {'installed': True, 'valid': False, 'pending': True,
+                    'notes': ['Interrupted update: rerun install to recover before updating, or uninstall.'],
+                    'launch_options': None}
         data = _load(exe)
         if data['state'] != 'installed':
             return {'installed': False, 'valid': False, 'pending': True,
                     'notes': ['Pending transaction: run uninstall for recovery.'], 'launch_options': None}
-        _verify(exe, data)
+        _verify(exe, data, allow_ini_changes=True)
         bridge_hash = data['files'][STORE + '/runtime/' + BRIDGE]['sha256']
         if _digest(Path(data['cache'])) != bridge_hash:
             raise RuntimeError('Bridge cache changed')
-        return {'installed': True, 'valid': True, 'pending': False, 'notes': list(NOTES),
+        notes = list(NOTES)
+        if _digest(exe.parent / INI) != data['files'][INI]['sha256']:
+            notes.append('NR settings changed since installation; current INI preserved. Installation defaults may no longer apply.')
+        return {'installed': True, 'valid': True, 'pending': False, 'notes': notes,
                 'command_prefix': shlex.quote(str(store / 'launch.sh')),
                 'launch_options': shlex.quote(str(store / 'launch.sh')) + ' %command%'}
     except (RuntimeError, OSError) as exc:
@@ -530,6 +546,156 @@ def status_game(exe):
         return _status(exe)
 
 
+def _update_cleanup(store):
+    folder = _safe(store / 'update', directory=True, missing=True)
+    if folder.exists():
+        entries = list(folder.iterdir())
+        for path in entries:
+            _safe(path)
+            if path.name not in {Path(n).name for n in TARGETS} and not path.name.startswith('.copy-'):
+                raise RuntimeError('Unknown update file; retain for recovery: ' + str(path))
+        for path in entries:
+            path.unlink()
+        folder.rmdir()
+        _sync(store)
+    marker = _safe(store / 'update.json', missing=True)
+    if marker.exists():
+        marker.unlink()
+        _sync(store)
+
+
+def _recover_update(exe):
+    store = exe.parent / STORE
+    marker = _safe(store / 'update.json', missing=True)
+    folder = _safe(store / 'update', directory=True, missing=True)
+    if not marker.exists():
+        if folder.exists():
+            raise RuntimeError('Update snapshots without journal; retain and review manually.')
+        return
+    journal = _json(marker)
+    if (type(journal) is not dict or set(journal) != {'phase', 'before', 'after', 'snapshots'}
+            or journal['phase'] not in ('preparing', 'ready', 'committed', 'restored')):
+        raise RuntimeError('Invalid update journal; refusing mutation.')
+    before = _validate_manifest(exe, journal['before'])
+    after = _validate_manifest(exe, journal['after'])
+    if _load(exe) not in (before, after):
+        raise RuntimeError('Deployment manifest changed during update; retain journal.')
+    snapshots = journal['snapshots']
+    if (before['state'] != 'installed' or after['state'] != 'installed'
+            or type(snapshots) is not dict or not set(snapshots).issubset(TARGETS)):
+        raise RuntimeError('Invalid update snapshots.')
+    for name, item in snapshots.items():
+        if (type(item) is not dict or set(item) != {'sha256', 'mode'}
+                or type(item['sha256']) is not str or not HASH.fullmatch(item['sha256'])
+                or type(item['mode']) is not int or not 0 <= item['mode'] <= 0o777):
+            raise RuntimeError('Invalid update snapshot metadata.')
+    if folder.exists():
+        for path in folder.iterdir():
+            _safe(path)
+            if path.name not in {Path(n).name for n in TARGETS} and not path.name.startswith('.copy-'):
+                raise RuntimeError('Unknown update snapshot file; retain journal.')
+    if journal['phase'] == 'ready':
+        # Preflight everything before restoring anything, including original backups.
+        for name, item in before['files'].items():
+            target = _safe(exe.parent / name)
+            if name in snapshots:
+                snapshot = snapshots[name]
+                if _digest(folder / Path(name).name) != snapshot['sha256']:
+                    raise RuntimeError('Update snapshot changed: ' + name)
+                if (_digest(target) not in {snapshot['sha256'], after['files'][name]['sha256']}
+                        or stat.S_IMODE(target.stat().st_mode) not in {snapshot['mode'], after['files'][name]['mode']}):
+                    raise RuntimeError('File changed during update; retain journal: ' + name)
+            elif name != INI and _digest(target) != item['sha256']:
+                raise RuntimeError('File changed during update: ' + name)
+            if item['original'] is not None and not item['preserve']:
+                if _digest(store / 'backups' / Path(name).name) != item['original']:
+                    raise RuntimeError('Original backup changed: ' + name)
+        for name, item in snapshots.items():
+            _atomic_copy(folder / Path(name).name, exe.parent / name,
+                         item['sha256'], item['mode'], store / 'stage')
+        _journal(store, before)
+        journal['phase'] = 'restored'
+        _atomic_bytes(marker, json.dumps(journal).encode())
+    elif journal['phase'] == 'committed':
+        if _load(exe) != after:
+            raise RuntimeError('Committed update manifest changed; retain journal.')
+        _verify(exe, after, allow_ini_changes=True)
+    _update_cleanup(store)
+
+
+def _update_game(exe, prior, assets, hashes, weights, weight_info, wrapper,
+                 cache, request, gpu, dry_run):
+    store = exe.parent / STORE
+    _cleanup(store, check_only=True)
+    ini = _bytes(exe.parent / INI)
+    payloads = {INI: _ini(ini, gpu['index'], update=True), STORE + '/launch.sh': wrapper}
+    sources = {name: assets / name for name in DLLS}
+    sources[STORE + '/runtime/' + BRIDGE] = assets / BRIDGE
+    sources[WEIGHTS] = weights
+    after = json.loads(json.dumps(prior))
+    after.update(request=request, cache=str(cache), undo={})
+    snapshots = {}
+    for name in TARGETS:
+        target = _safe(exe.parent / name)
+        current = _digest(target)
+        mode = stat.S_IMODE(target.stat().st_mode)
+        digest = (hashlib.sha256(payloads[name]).hexdigest() if name in payloads else
+                  weight_info['sha256'] if name == WEIGHTS else hashes[Path(name).name])
+        new_mode = mode if name == INI else 0o700 if name.endswith('/launch.sh') else stat.S_IMODE(sources[name].stat().st_mode) & 0o777
+        item = after['files'][name]
+        item.update(sha256=digest, mode=new_mode)
+        if digest != current or mode != new_mode:
+            snapshots[name] = {'sha256': current, 'mode': mode}
+            item.update(preserve=False, touched=True)
+    _validate_manifest(exe, after)
+    if dry_run:
+        return dict(_status(exe), dry_run=True, update_planned=True, changed_files=list(snapshots))
+    _cache(assets / BRIDGE, hashes[BRIDGE], cache)
+    journal = {'phase': 'preparing', 'before': prior, 'after': after, 'snapshots': snapshots}
+    marker = store / 'update.json'
+    folder = store / 'update'
+    try:
+        _atomic_bytes(marker, json.dumps(journal).encode())
+        folder.mkdir(mode=0o700)
+        _sync(store)
+        for name, item in snapshots.items():
+            _atomic_copy(exe.parent / name, folder / Path(name).name, item['sha256'], item['mode'])
+            # Previously preserved user weights now need a first-install backup.
+            old = prior['files'][name]
+            if old['preserve']:
+                backup = store / 'backups' / Path(name).name
+                if backup.exists():
+                    if _digest(backup) != old['original']:
+                        raise RuntimeError('Original backup changed: ' + name)
+                else:
+                    _atomic_copy(exe.parent / name, backup, old['original'], old['original_mode'])
+        for name, content in payloads.items():
+            if name in snapshots:
+                _atomic_bytes(store / 'stage' / Path(name).name, content, after['files'][name]['mode'])
+                sources[name] = store / 'stage' / Path(name).name
+        _verify(exe, prior, allow_ini_changes=True)
+        for name, item in snapshots.items():
+            if _digest(exe.parent / name) != item['sha256']:
+                raise RuntimeError('File changed while preparing update: ' + name)
+        journal['phase'] = 'ready'
+        _atomic_bytes(marker, json.dumps(journal).encode())
+        for name in snapshots:
+            item = after['files'][name]
+            _atomic_copy(sources[name], exe.parent / name, item['sha256'], item['mode'], store / 'stage')
+        _verify(exe, after)
+        _journal(store, after)
+        journal['phase'] = 'committed'
+        _atomic_bytes(marker, json.dumps(journal).encode())
+    except Exception:
+        try:
+            _recover_update(exe)
+        except Exception as recovery:
+            raise RuntimeError(f'Update recovery incomplete: {recovery}; retain backups and rerun install.') from recovery
+        raise
+    _update_cleanup(store)
+    return dict(_status(exe), updated=True, idempotent=False, dry_run=False, changed_files=list(snapshots))
+
+
 def install_game(exe, package_root, runtime, gpu, proton, weights, *,
                  acknowledge_risk=False, replace_existing=False, dry_run=False):
     if not acknowledge_risk:
@@ -541,10 +707,14 @@ def install_game(exe, package_root, runtime, gpu, proton, weights, *,
         store = exe.parent / STORE
         prior = None
         if store.exists() or store.is_symlink():
+            if (store / 'update.json').exists() or (store / 'update').exists():
+                if dry_run:
+                    raise RuntimeError('Interrupted update: run install without --dry-run to recover first.')
+                _recover_update(exe)
             prior = _load(exe)
             if prior['state'] != 'installed':
                 raise RuntimeError('Pending transaction: run uninstall for recovery before install')
-            _verify(exe, prior)
+            _verify(exe, prior, allow_ini_changes=True)
         if type(gpu.get('index')) is not int or gpu['index'] < 0 or not isinstance(gpu.get('name'), str) or not gpu['name']:
             raise RuntimeError('Select an explicit GPU index and name')
         assets = _safe(Path(package_root) / 'assets', directory=True)
@@ -563,9 +733,10 @@ def install_game(exe, package_root, runtime, gpu, proton, weights, *,
                                              'weights': weight_info, 'wrapper': wrapper.decode(),
                                              'gpu_index': gpu['index'], 'proton': str(proton.get('root', ''))}, sort_keys=True).encode()).hexdigest()
         if prior:
-            if prior['request'] != request or not _status(exe)['valid']:
-                raise RuntimeError('Existing deployment differs; uninstall before changing its configuration')
-            return dict(_status(exe), idempotent=True, dry_run=dry_run)
+            if prior['request'] == request:
+                return dict(_status(exe), idempotent=True, dry_run=dry_run)
+            return _update_game(exe, prior, assets, hashes, weights, weight_info,
+                                wrapper, cache, request, gpu, dry_run)
         for name in TARGETS:
             _safe(exe.parent / name, missing=True)
         for name in DLLS:
@@ -654,6 +825,7 @@ def uninstall_game(exe):
             _sync(exe.parent)
             return {'installed': False, 'valid': False, 'pending': False,
                     'notes': ['Removed empty transaction claim; no game files changed.']}
+        _recover_update(exe)
         data = _load(exe)
         _cleanup(store, check_only=True)
         if data['state'] == 'removed':

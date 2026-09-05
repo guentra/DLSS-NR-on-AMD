@@ -234,6 +234,8 @@ def emit(result, args):
         return
     if result.get('dry_run'):
         print('Dry run completed; nothing installed.')
+    elif result.get('updated') and result.get('valid'):
+        print('Existing installation updated and verified on disk. Original backups and NR settings retained; selected GPU applied.')
     elif result.get('installed') and result.get('valid'):
         print('Installation verified on disk (not an in-game rendering validation).')
     elif result.get('installed') or result.get('pending'):
@@ -253,7 +255,7 @@ def emit(result, args):
     if result.get('launch_options'):
         print('Steam launch options (only if using Steam; preserve unrelated existing options):')
         print(result['launch_options'])
-        print('NR install settings: Enabled=1 / Inline=1 / Interop=1. Enable FSR as the injection hook; End opens the mod menu.')
+        print('First-install defaults: Enabled=1 / Inline=1 / Interop=1; updates preserve existing settings. Enable FSR as the injection hook; End opens the mod menu.')
     for warning in result.get('warnings', []):
         print('Warning:', warning)
     for note in result.get('notes', []):

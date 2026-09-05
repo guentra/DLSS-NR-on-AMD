@@ -7,7 +7,7 @@ Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux thro
 ## Install
 
 1. Close the game.
-2. [Download **`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.2) — not the “Source code” archive.
+2. [Download **`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.2.1) — not the “Source code” archive.
 3. Extract it into the game folder. Open a terminal in the extracted `dlssnr-linux-portable` subfolder and run:
 
    ```sh
@@ -42,7 +42,9 @@ Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux thro
 - **Prerequisite errors?** Run `./install.sh doctor` for diagnostics. All optional arguments are listed by `./install.sh install --help`.
 - **Resident Evil Requiem:** GPU faults and crashes have been reported with mod v0.2.11. No fix is validated; do not keep retrying after GPU faults.
 
-## Uninstall
+## Update or uninstall
+
+To **update**, extract the new installer and run `./install.sh` again. Managed installations are updated in place, keeping NR settings and the original backups. A newly selected GPU is applied. Modified DLLs still require review.
 
 Close the game, then run from the installer folder:
 
