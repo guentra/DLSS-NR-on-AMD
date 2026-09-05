@@ -1,0 +1,21 @@
+{
+  "version": "0.1.1",
+  "mod_version": "0.2.11",
+  "files": {
+    "version.dll": "b4fb069a9c4db1667959bc764faa61fcab036b2593afc4cd56ec35f38af87265",
+    "d3d12.dll": "fe2a268358e7bfff993e90df555eaa4f618fb813bcf9b669a22b71cbf6fc3577",
+    "d3d12core.dll": "00c1f41d3e5b2c1ddd9cac50871169ad9fc2240c80796885dd5dafb1537d844b",
+    "amdhip64_7.dll": "7e5410584c4a95d5b0cbef8a54ca144f0fcadd60e9570db79c41bfe5cd834b2e",
+    "libdlssnr_hip_bridge.so": "c07bb1ec71f80103cbb34cd9130200159636dbb176c300c6a8a2e7029c7db37e",
+    "dlssnr_on_amd_setup.exe": "dbf7e40ca6940924ffe0960b350f3d55cb99ed27dde84aec47cdf8a0b7303a74"
+  },
+  "targets": [
+    "gfx1100",
+    "gfx1101",
+    "gfx1102",
+    "gfx1201"
+  ],
+  "minimum_glibc": "2.34",
+  "ordered_abi": 3,
+  "flag_shader_hash": "40bbb9064a7c18fb"
+}

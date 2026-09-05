@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "purpose": "Personal transfer between the user's PCs; no public redistribution permission asserted.",
+  "assets": [
+    {
+      "file": "assets/version.dll",
+      "sha256": "b4fb069a9c4db1667959bc764faa61fcab036b2593afc4cd56ec35f38af87265",
+      "verified_local_matches": [
+        "interop/staged-0211/version.dll"
+      ]
+    },
+    {
+      "file": "assets/d3d12.dll",
+      "sha256": "fe2a268358e7bfff993e90df555eaa4f618fb813bcf9b669a22b71cbf6fc3577",
+      "verified_local_matches": [
+        "interop/d3d12.dll",
+        "interop/build-win64/libs/d3d12/d3d12.dll"
+      ]
+    },
+    {
+      "file": "assets/d3d12core.dll",
+      "sha256": "00c1f41d3e5b2c1ddd9cac50871169ad9fc2240c80796885dd5dafb1537d844b",
+      "verified_local_matches": [
+        "interop/d3d12core.dll",
+        "interop/build-win64/libs/d3d12core/d3d12core.dll"
+      ]
+    },
+    {
+      "file": "assets/amdhip64_7.dll",
+      "sha256": "7e5410584c4a95d5b0cbef8a54ca144f0fcadd60e9570db79c41bfe5cd834b2e",
+      "verified_local_matches": [
+        "amdhip64_7.dll"
+      ]
+    },
+    {
+      "file": "assets/libdlssnr_hip_bridge.so",
+      "sha256": "c07bb1ec71f80103cbb34cd9130200159636dbb176c300c6a8a2e7029c7db37e",
+      "verified_local_matches": [],
+      "verification": "Byte-identical temporary rebuild from native/hip_bridge.c with documented cc flags; no loading/execution."
+    },
+    {
+      "file": "assets/dlssnr_on_amd_setup.exe",
+      "sha256": "dbf7e40ca6940924ffe0960b350f3d55cb99ed27dde84aec47cdf8a0b7303a74",
+      "verified_local_matches": [
+        "interop/release-0211/dlssnr_on_amd_setup.exe"
+      ]
+    }
+  ],
+  "vkd3d": {
+    "repository": "https://github.com/HansKristian-Work/vkd3d-proton.git",
+    "commit": "35bdee1435c94f8c3548725fcb046595b263bd7e",
+    "patch": "sources/vkd3d-proton-ordered.patch",
+    "patch_sha256": "ec4706bad1787ddfb010993ad37d25bc2e7777f3a5332647e6008d430308eaae",
+    "submodules": "sources/vkd3d-submodules.json",
+    "verification": "Patch checked and applied to temporary git archive of exact HEAD; all seven resulting files byte-match local sources. Local build DLL hashes match assets. Full vkd3d rebuild not performed."
+  },
+  "upstream_mod": {
+    "repository": "https://github.com/danielblnc/DLSS-NR-on-AMD",
+    "tag": "v0.2.11",
+    "release_url": "https://github.com/danielblnc/DLSS-NR-on-AMD/releases/tag/v0.2.11",
+    "setup_url": "https://github.com/danielblnc/DLSS-NR-on-AMD/releases/download/v0.2.11/dlssnr_on_amd_setup.exe",
+    "setup_github_digest": "sha256:dbf7e40ca6940924ffe0960b350f3d55cb99ed27dde84aec47cdf8a0b7303a74",
+    "readme_git_blob": "812e71eefd6e7034ffbb90e2400a7a93390b23c8",
+    "license_endpoint": "https://api.github.com/repos/danielblnc/DLSS-NR-on-AMD/license",
+    "license_http_status": 404,
+    "license": null,
+    "notice": "licenses/DLSS-NR-upstream-notice.txt"
+  },
+  "limitations": [
+    "version.dll matches local staged v0.2.11 payload; extraction from setup was not repeated (no Wine execution).",
+    "Trampoline matches local binary; supplied local C/header/DEF sources have no recorded original build command or explicit license grant; byte-identical trampoline rebuild not verified.",
+    "The supplied native bridge has a byte-identical temporary rebuild, but local custom-source license grants remain unspecified.",
+    "Source reconstruction of vkd3d requires network access to pinned upstream git commits and submodules; no toolchain or full checkout is bundled.",
+    "Absence of an upstream mod license is not permission to redistribute; obtain authorization before publishing bundled mod binaries."
+  ],
+  "source_hashes": {
+    "sources/trampoline/amdhip64_7_pe.c": "f905e295283336f3d2c863bab4ad5f128bc0f62e06b4591df31d9b4cb4de6e9c",
+    "sources/trampoline/hip_bridge.h": "56060ac9ed0725bba0e44b88adb8902280e87d7eb129d5f0576bd4afedfa8fba",
+    "sources/trampoline/kernel32.def": "7b8fb39c7c1847a8a68c030f1e47074e671c7204059654dc4f8e30b4de74e3da",
+    "sources/trampoline/ntdll.def": "4347c80c0ead0e117bc0b6651d14dcc34cac5304028e8a2b9f634d724523ac5f",
+    "native/hip_bridge.c": "d11752e2adc1f944c5d71a0be0b16633dfc615824dfb3926b2bae113a0d617c8",
+    "native/hip_bridge.h": "56060ac9ed0725bba0e44b88adb8902280e87d7eb129d5f0576bd4afedfa8fba",
+    "native/nr_ordered.c": "fda07f590aeda02479233f5ec69741b268c1f2320b273cbfacd0d076d17faf86",
+    "native/nr_ordered.h": "0740adedd030bfb97e3146a4060b0ba9aeb163389f0590edfb923e0ca515437d",
+    "licenses/DLSS-NR-upstream-notice.txt": "b8be79973f60b7fb52bf8598b390f401e1e5351bbfe18ee223426800bc26fc5c",
+    "licenses/vkd3d-dependency-notices.txt": "eddc7f35a4e6d79d69901edeb523ef2aae3dff3091aafa38cf9cf5f44ad8c6e0",
+    "licenses/vkd3d-proton-AUTHORS": "825ecce7c240aa4824cd80f27640cba19c74f7187b1ecdf8c1a2645ddb4d30c3",
+    "licenses/vkd3d-proton-COPYING": "f51ad4bf5a3bd2b5f383fe28150b23d01e6f5d7b620b194150e7c6a620c43c1f",
+    "licenses/vkd3d-proton-LICENSE": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+  }
+}

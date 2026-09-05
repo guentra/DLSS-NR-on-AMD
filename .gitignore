@@ -1,0 +1,20 @@
+# Binaries belong in release assets, not the source tree.
+/assets/*
+!/assets/manifest.json
+/dist/
+/tests/
+/native/
+/sources/
+/licenses/
+*.dll
+*.exe
+*.so
+*.so.*
+*.bin
+*.tar.gz
+*.zip
+__pycache__/
+*.py[cod]
+.venv/
+*.log
+.env
