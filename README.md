@@ -6,7 +6,7 @@ Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux thro
 
 ## Install
 
-1. [Download **`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.2.1) ²
+1. Download [**`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.2.1) 
 2. Extract it into the game folder. Open a terminal in the extracted `dlssnr-linux-portable` subfolder and run:
 
    ```sh
