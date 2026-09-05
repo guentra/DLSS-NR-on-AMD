@@ -68,6 +68,14 @@ Replace the example paths with your own:
 
 Keep the quoting. The installer does not modify Steam configuration, shared Proton, saves, display settings or other games. It installs local DLLs, the NR INI and a per-game `.dlssnr-linux/` directory. NR is explicitly configured with **Enabled=1, Inline=1, Interop=1**. Enable FSR in the game as the mod's injection hook, not as a substitute upscaler. Press **End** for the mod menu.
 
+## How the wrapper works
+
+Steam runs `.dlssnr-linux/launch.sh` before its normal `%command%`. The script checks the bridge and HIP runtime hashes, exposes the required paths to Steam's container, sets per-game GPU filters and DLL overrides, then forwards the original command and arguments unchanged.
+
+Inside Proton, the mod's `version.dll` hooks the game's FSR path. A small `amdhip64_7.dll` trampoline forwards Windows HIP calls to a Linux bridge loaded through `LD_PRELOAD`; that bridge loads ROCm only when HIP is first needed. The patched vkd3d-proton DLLs handle the D3D12/Vulkan side of buffer sharing with HIP. Neural rendering still uses the upstream mod's kernels—not a replacement upscaler or a Windows GPU driver.
+
+These launch settings are scoped to the game; the wrapper does not modify shared Proton or system ROCm files.
+
 ## Troubleshooting
 
 ### Game executable not detected or multiple executables found
