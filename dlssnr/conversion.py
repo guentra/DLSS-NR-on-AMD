@@ -44,7 +44,7 @@ def convert_weights(package_root, nvidia_dll, proton, cache_root):
     if sha256(source)!=KNOWN_NVIDIA_SHA:
         raise RuntimeError('Unrecognized NVIDIA DLL: only verified version 310.8.0.0 is accepted. '
                            'Supply already converted DLSSNRW1 weights with --weights if needed.')
-    root=Path(package_root).resolve();verify_assets(root)
+    root=Path(package_root).resolve();manifest=verify_assets(root)
     wine=Path(proton['wine']).resolve()
     if not wine.is_file():raise RuntimeError('Proton Wine is missing')
     server=wine.parent/'wineserver'
@@ -111,7 +111,7 @@ def convert_weights(package_root, nvidia_dll, proton, cache_root):
             # Never touch a legacy weights.tmp (which may point outside the cache).
             _atomic_copy(generated, output, details['sha256'])
             _atomic_bytes(cache/'conversion.json', json.dumps({'input_sha256':KNOWN_NVIDIA_SHA,
-                    'weights':details,'source':'local conversion via original setup v0.2.11'},indent=2).encode())
+                    'weights':details,'source':'local conversion via original setup v' + manifest.get('mod_version', 'unknown')},indent=2).encode())
         finally:
             if safe_to_remove:
                 shutil.rmtree(folder)

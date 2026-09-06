@@ -21,7 +21,7 @@ PAYLOADS = (
     'libdlssnr_hip_bridge.so', 'dlssnr_on_amd_setup.exe',
 )
 PACKAGE_FILES = (
-    'installer.py', 'install.sh', 'build_release.py', 'README.md',
+    'installer.py', 'install.sh', 'build_release.py', 'stage_upstream.py', 'README.md',
     'THIRD-PARTY.md', 'PROVENANCE.json',
     'dlssnr/cli.py', 'dlssnr/assets.py', 'dlssnr/conversion.py',
     'dlssnr/deploy.py', 'dlssnr/games.py', 'dlssnr/runtime.py',

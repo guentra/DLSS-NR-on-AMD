@@ -272,6 +272,13 @@ def main(argv=None):
     args = parser().parse_args(arguments or ['install'])
     interactive = sys.stdin.isatty() and not args.json
     try:
+        manifest = None
+        if args.command == 'install':
+            manifest = assets.verify_assets(PACKAGE_ROOT)
+            if not args.json:
+                print('DLSS-NR Linux installer:', manifest.get('version', 'unknown'))
+                print('Mod to install: DLSS-NR on AMD', manifest.get('mod_version', 'unknown'))
+                print()
         if args.command in ('list-games', 'list-protons'):
             if args.command == 'list-games':
                 rows = games.discover_games(args.steam_root)
@@ -313,7 +320,8 @@ def main(argv=None):
                 raise RuntimeError('Restore incomplete; retain all backups and the journal.')
             emit(result, args)
             return 0
-        manifest = assets.verify_assets(PACKAGE_ROOT)
+        if manifest is None:
+            manifest = assets.verify_assets(PACKAGE_ROOT)
         host = check_host(manifest)
         evidence = games.inspect_game(exe)
         for key, explanation in (('dx12', 'No static DirectX 12 evidence found'),

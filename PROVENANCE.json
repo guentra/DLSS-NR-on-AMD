@@ -4,10 +4,9 @@
   "assets": [
     {
       "file": "assets/version.dll",
-      "sha256": "b4fb069a9c4db1667959bc764faa61fcab036b2593afc4cd56ec35f38af87265",
-      "verified_local_matches": [
-        "interop/staged-0211/version.dll"
-      ]
+      "sha256": "7d2249e39fbb87e1a5084de7770a43bae8f1977d86f0353a055caba65f5c4667",
+      "verified_local_matches": [],
+      "verification": "Reproduced by stage_upstream.py from the pinned v0.2.12 setup; independently checked with pefile. Only the 530-byte HLSL string changes."
     },
     {
       "file": "assets/d3d12.dll",
@@ -40,10 +39,9 @@
     },
     {
       "file": "assets/dlssnr_on_amd_setup.exe",
-      "sha256": "dbf7e40ca6940924ffe0960b350f3d55cb99ed27dde84aec47cdf8a0b7303a74",
-      "verified_local_matches": [
-        "interop/release-0211/dlssnr_on_amd_setup.exe"
-      ]
+      "sha256": "87dbde90f1249ceb32e06ca4d68c34fd8b5d9d1130fd4ee4560a0eb33079b876",
+      "verified_local_matches": [],
+      "verification": "Downloaded v0.2.12 asset SHA256 matches GitHub release digest."
     }
   ],
   "vkd3d": {
@@ -56,10 +54,10 @@
   },
   "upstream_mod": {
     "repository": "https://github.com/danielblnc/DLSS-NR-on-AMD",
-    "tag": "v0.2.11",
-    "release_url": "https://github.com/danielblnc/DLSS-NR-on-AMD/releases/tag/v0.2.11",
-    "setup_url": "https://github.com/danielblnc/DLSS-NR-on-AMD/releases/download/v0.2.11/dlssnr_on_amd_setup.exe",
-    "setup_github_digest": "sha256:dbf7e40ca6940924ffe0960b350f3d55cb99ed27dde84aec47cdf8a0b7303a74",
+    "tag": "v0.2.12",
+    "release_url": "https://github.com/danielblnc/DLSS-NR-on-AMD/releases/tag/v0.2.12",
+    "setup_url": "https://github.com/danielblnc/DLSS-NR-on-AMD/releases/download/v0.2.12/dlssnr_on_amd_setup.exe",
+    "setup_github_digest": "sha256:87dbde90f1249ceb32e06ca4d68c34fd8b5d9d1130fd4ee4560a0eb33079b876",
     "readme_git_blob": "812e71eefd6e7034ffbb90e2400a7a93390b23c8",
     "license_endpoint": "https://api.github.com/repos/danielblnc/DLSS-NR-on-AMD/license",
     "license_http_status": 404,
@@ -67,7 +65,9 @@
     "notice": "licenses/DLSS-NR-upstream-notice.txt"
   },
   "limitations": [
-    "version.dll matches local staged v0.2.11 payload; extraction from setup was not repeated (no Wine execution).",
+    "v0.2.12 extracted statically with validated setup footer and payload hash e350e6137a5bb514f40465bafbd6d5411f2310b4ea9de2590f6229d5f9555212. All 29 named HIP imports are covered by the unchanged trampoline. Original HLSL is byte-identical to v0.2.11; patched shader is identical to the existing ordered-interop shader.",
+    "Setup mapped sections match v0.2.11 except debug timestamps; conversion code is byte-identical and upstream still requires NVIDIA 310.8.0.0. Actual weight conversion was not repeated for this upgrade.",
+    "CPU differences against v0.2.11 are displacement-only in 93 instructions across 30 functions; HIP fatbin changes are upstream code. No in-game validation or Linux performance measurement for v0.2.12.",
     "Trampoline matches local binary; supplied local C/header/DEF sources have no recorded original build command or explicit license grant; byte-identical trampoline rebuild not verified.",
     "The supplied native bridge has a byte-identical temporary rebuild, but local custom-source license grants remain unspecified.",
     "Source reconstruction of vkd3d requires network access to pinned upstream git commits and submodules; no toolchain or full checkout is bundled.",

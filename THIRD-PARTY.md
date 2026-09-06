@@ -2,13 +2,13 @@
 
 This is an unofficial Linux/Proton adaptation. Publication does not grant a license to third-party components or establish permission for their further redistribution. Third-party rights remain with their respective owners. No NVIDIA/AMD affiliation or endorsement is claimed. The source paths described below refer to the installation archive; the Git tree contains only the installer/wrapper and documentation; tests are not published.
 
-## DLSS-NR on AMD (danielblnc), v0.2.11
+## DLSS-NR on AMD (danielblnc), v0.2.12
 
 Project: https://github.com/danielblnc/DLSS-NR-on-AMD
 
-Release: https://github.com/danielblnc/DLSS-NR-on-AMD/releases/tag/v0.2.11
+Release: https://github.com/danielblnc/DLSS-NR-on-AMD/releases/tag/v0.2.12
 
-The bundled setup SHA256 matches the release digest published by GitHub. `version.dll` matches the local staged v0.2.11 payload; extraction was not repeated during the packaging audit. The other four binary assets are local Linux adaptations, not four additional upstream downloads.
+The bundled setup SHA256 matches the release digest published by GitHub. `stage_upstream.py` verifies the setup footer, embedded DLL and original shader hashes before applying the existing ordered-interop HLSL adaptation. Only that shader string changes; upstream CPU code and HIP kernels remain intact. The other four binary assets are unchanged local Linux adaptations, not additional upstream downloads. Static checks are not in-game validation.
 
 GitHub's `/license` API returned HTTP 404. The accessible repository exposes README and `.github`, without an identified license. Its README Legal notice is preserved verbatim in `licenses/DLSS-NR-upstream-notice.txt`, with the verified Git blob identifier. It requires a legitimate NVIDIA DLL, disclaims affiliation and warranty, and states the upstream software contains no NVIDIA code or data. **That notice does not explicitly grant redistribution permission.** Download availability is not permission. Obtain authorization before publication. Complete upstream mod source was not found in that repository.
 
