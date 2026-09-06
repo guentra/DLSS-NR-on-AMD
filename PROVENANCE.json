@@ -33,9 +33,9 @@
     },
     {
       "file": "assets/libdlssnr_hip_bridge.so",
-      "sha256": "c07bb1ec71f80103cbb34cd9130200159636dbb176c300c6a8a2e7029c7db37e",
+      "sha256": "7ee2388ba19695b04174d9cadfe073fd98c824bd0eb403582bda9f5a88218360",
       "verified_local_matches": [],
-      "verification": "Byte-identical temporary rebuild from native/hip_bridge.c with documented cc flags; no loading/execution."
+      "verification": "Rebuilt from native/hip_bridge.c with documented cc flags after HIP $ORIGIN NEEDED lookup; constructor still does not dlopen HIP. Not a game execution test."
     },
     {
       "file": "assets/dlssnr_on_amd_setup.exe",
@@ -78,7 +78,7 @@
     "sources/trampoline/hip_bridge.h": "56060ac9ed0725bba0e44b88adb8902280e87d7eb129d5f0576bd4afedfa8fba",
     "sources/trampoline/kernel32.def": "7b8fb39c7c1847a8a68c030f1e47074e671c7204059654dc4f8e30b4de74e3da",
     "sources/trampoline/ntdll.def": "4347c80c0ead0e117bc0b6651d14dcc34cac5304028e8a2b9f634d724523ac5f",
-    "native/hip_bridge.c": "d11752e2adc1f944c5d71a0be0b16633dfc615824dfb3926b2bae113a0d617c8",
+    "native/hip_bridge.c": "3d157c2d982e6f902335c21e72fac8e6ab18d93be12f692cb533d03204ae1843",
     "native/hip_bridge.h": "56060ac9ed0725bba0e44b88adb8902280e87d7eb129d5f0576bd4afedfa8fba",
     "native/nr_ordered.c": "fda07f590aeda02479233f5ec69741b268c1f2320b273cbfacd0d076d17faf86",
     "native/nr_ordered.h": "0740adedd030bfb97e3146a4060b0ba9aeb163389f0590edfb923e0ca515437d",
