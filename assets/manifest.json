@@ -6,7 +6,7 @@
     "d3d12.dll": "fe2a268358e7bfff993e90df555eaa4f618fb813bcf9b669a22b71cbf6fc3577",
     "d3d12core.dll": "00c1f41d3e5b2c1ddd9cac50871169ad9fc2240c80796885dd5dafb1537d844b",
     "amdhip64_7.dll": "7e5410584c4a95d5b0cbef8a54ca144f0fcadd60e9570db79c41bfe5cd834b2e",
-    "libdlssnr_hip_bridge.so": "7ee2388ba19695b04174d9cadfe073fd98c824bd0eb403582bda9f5a88218360",
+    "libdlssnr_hip_bridge.so": "174f4556fd71ecbad0cea183dd74275a44e4688761884093f0a0b5fb09b7b17b",
     "dlssnr_on_amd_setup.exe": "87dbde90f1249ceb32e06ca4d68c34fd8b5d9d1130fd4ee4560a0eb33079b876"
   },
   "targets": [
