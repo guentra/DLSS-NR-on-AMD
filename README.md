@@ -2,7 +2,8 @@
 
 Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux through Wine/Proton.
 
-**Experimental:** installation can succeed even if rendering does not work correctly in your game.
+**Experimental:** Feel free to report any issues you encounter. So far, it has only been tested on my PC.
+Asynchronous rendering is not functional yet.
 
 This development build uses upstream **v0.2.12**. 
 
