@@ -18,6 +18,8 @@ import shlex
 import stat
 import tempfile
 
+from . import kernels
+
 DLLS = ('version.dll', 'd3d12.dll', 'd3d12core.dll', 'amdhip64_7.dll')
 BRIDGE = 'libdlssnr_hip_bridge.so'
 INI = 'dlssnr_on_amd.ini'
@@ -624,11 +626,12 @@ def _recover_update(exe):
 
 
 def _update_game(exe, prior, assets, hashes, weights, weight_info, wrapper,
-                 cache, request, gpu, dry_run):
+                 cache, request, gpu, dry_run, extra_payloads=None):
     store = exe.parent / STORE
     _cleanup(store, check_only=True)
     ini = _bytes(exe.parent / INI)
     payloads = {INI: _ini(ini, gpu['index'], update=True), STORE + '/launch.sh': wrapper}
+    payloads.update(extra_payloads or {})
     sources = {name: assets / name for name in DLLS}
     sources[STORE + '/runtime/' + BRIDGE] = assets / BRIDGE
     sources[WEIGHTS] = weights
@@ -729,14 +732,22 @@ def install_game(exe, package_root, runtime, gpu, proton, weights, *,
         weight_info = _weights(weights)
         cache = _cache_path(hashes[BRIDGE])
         wrapper = _wrapper(exe, runtime, gpu, cache, hashes[BRIDGE])
-        request = hashlib.sha256(json.dumps({'assets': {name: hashes[name] for name in DLLS + (BRIDGE,)},
-                                             'weights': weight_info, 'wrapper': wrapper.decode(),
-                                             'gpu_index': gpu['index'], 'proton': str(proton.get('root', ''))}, sort_keys=True).encode()).hexdigest()
+        version_dll = kernels.adapt_version_dll(_bytes(assets / 'version.dll'), gpu.get('arch'))
+        version_hash = hashlib.sha256(version_dll).hexdigest()
+        extra_payloads = {}
+        if version_hash != hashes['version.dll']:
+            extra_payloads['version.dll'] = version_dll
+        request_body = {'assets': {name: hashes[name] for name in DLLS + (BRIDGE,)},
+                        'weights': weight_info, 'wrapper': wrapper.decode(),
+                        'gpu_index': gpu['index'], 'proton': str(proton.get('root', ''))}
+        if extra_payloads:
+            request_body['version_dll'] = version_hash
+        request = hashlib.sha256(json.dumps(request_body, sort_keys=True).encode()).hexdigest()
         if prior:
             if prior['request'] == request:
                 return dict(_status(exe), idempotent=True, dry_run=dry_run)
             return _update_game(exe, prior, assets, hashes, weights, weight_info,
-                                wrapper, cache, request, gpu, dry_run)
+                                wrapper, cache, request, gpu, dry_run, extra_payloads)
         for name in TARGETS:
             _safe(exe.parent / name, missing=True)
         for name in DLLS:
@@ -748,6 +759,7 @@ def install_game(exe, package_root, runtime, gpu, proton, weights, *,
         sources[STORE + '/runtime/' + BRIDGE] = assets / BRIDGE
         sources[WEIGHTS] = weights
         payloads = {INI: ini_data, STORE + '/launch.sh': wrapper}
+        payloads.update(extra_payloads)
         files = {}
         for name in TARGETS:
             digest = hashlib.sha256(payloads[name]).hexdigest() if name in payloads else (weight_info['sha256'] if name == WEIGHTS else hashes[Path(name).name])

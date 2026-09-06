@@ -8,10 +8,10 @@ from pathlib import Path
 import platform
 import sys
 
-from . import assets, conversion, deploy, games, runtime
+from . import assets, conversion, deploy, games, kernels, runtime
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-TARGETS = frozenset(('gfx1100', 'gfx1101', 'gfx1102', 'gfx1201'))
+TARGETS = kernels.TARGETS
 
 
 def parser():

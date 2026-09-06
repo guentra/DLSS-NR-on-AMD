@@ -24,7 +24,7 @@ PACKAGE_FILES = (
     'installer.py', 'install.sh', 'build_release.py', 'stage_upstream.py', 'README.md',
     'THIRD-PARTY.md', 'PROVENANCE.json',
     'dlssnr/cli.py', 'dlssnr/assets.py', 'dlssnr/conversion.py',
-    'dlssnr/deploy.py', 'dlssnr/games.py', 'dlssnr/runtime.py',
+    'dlssnr/deploy.py', 'dlssnr/games.py', 'dlssnr/kernels.py', 'dlssnr/runtime.py',
     'assets/manifest.json',
     'native/hip_bridge.c', 'native/hip_bridge.h',
     'native/nr_ordered.c', 'native/nr_ordered.h',
