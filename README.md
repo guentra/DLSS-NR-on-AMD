@@ -4,7 +4,7 @@ Run [DLSS-NR on AMD](https://github.com/danielblnc/DLSS-NR-on-AMD) on Linux thro
 
 **Experimental:** installation can succeed even if rendering does not work correctly in your game.
 
-This development build uses upstream **v0.2.12**. Its announced 6% performance improvement has not been measured on Linux.
+This development build uses upstream **v0.2.12**. 
 
 ## Install
 
