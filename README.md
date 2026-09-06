@@ -9,7 +9,7 @@ This development build uses upstream **v0.2.12**.
 
 ## Install
 
-1. Download [**`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-v0.1.3-local) 
+1. Download [**`dlssnr-linux-portable.tar.gz`**](https://github.com/guentra/DLSS-NR-on-AMD-Linux/releases/tag/linux-experimental-rx9060)
 2. Extract it into the game folder. Open a terminal in the extracted `dlssnr-linux-portable` subfolder and run:
 
    ```sh
