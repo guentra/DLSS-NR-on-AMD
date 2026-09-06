@@ -8,7 +8,7 @@ from pathlib import Path
 import platform
 import sys
 
-from . import assets, conversion, deploy, games, kernels, runtime
+from . import assets, conversion, deploy, games, kernels, runtime, runner_probe
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 TARGETS = kernels.TARGETS
@@ -199,9 +199,13 @@ def readonly_runtime(args):
                        'Use runtime --install-rocm or --hip-library.\n' + '\n'.join(errors))
 
 
-def ensure_runtime(args, interactive):
+def ensure_runtime(args, interactive, proton=None):
+    options = {}
+    if proton is not None:
+        options['runner_validator'] = lambda rt: runner_probe.probe(
+            PACKAGE_ROOT, rt, proton, data_dir(args), args.steam_root)
     try:
-        return runtime.ensure_runtime(data_dir(args), supplied=args.hip_library, allow_install=args.install_rocm)
+        return runtime.ensure_runtime(data_dir(args), supplied=args.hip_library, allow_install=args.install_rocm, **options)
     except runtime.DriverUnavailable:
         raise
     except RuntimeError as exc:
@@ -209,7 +213,7 @@ def ensure_runtime(args, interactive):
             raise
         print(str(exc))
         require(False, True, 'Download the pinned official AMD HIP7 wheel into your user directory (3 GiB free required)?', '--install-rocm')
-        return runtime.ensure_runtime(data_dir(args), allow_install=True)
+        return runtime.ensure_runtime(data_dir(args), allow_install=True, **options)
 
 
 def emit(result, args):
@@ -231,6 +235,7 @@ def emit(result, args):
         for warning in result.get('warnings', []):
             print('Warning:', warning)
         print('Actual launcher/runner selection and in-game rendering are NOT verified.')
+        print('Doctor is read-only: the temporary-prefix runner loading test runs during installation only.')
         return
     if result.get('dry_run'):
         print('Dry run completed; nothing installed.')
@@ -356,7 +361,7 @@ def main(argv=None):
         require(args.accept_risk, interactive, 'Experimental injection may crash, render incorrectly or trigger anti-cheat. Continue?', '--accept-risk')
         if deploy.running_game(exe):
             raise RuntimeError('Close the game before installation.')
-        rt = readonly_runtime(args) if args.dry_run else ensure_runtime(args, interactive)
+        rt = readonly_runtime(args) if args.dry_run else ensure_runtime(args, interactive, proton)
         gpu = select_gpu(rt['devices'], args.gpu, interactive)
         weights = args.weights.expanduser() if args.weights else exe.parent / deploy.WEIGHTS
         if not args.weights and not args.nvidia_dll and not weights.is_file():

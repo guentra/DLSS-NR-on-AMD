@@ -18,15 +18,16 @@ import tempfile
 ARCHIVE_ROOT = 'dlssnr-linux-portable'
 PAYLOADS = (
     'version.dll', 'd3d12.dll', 'd3d12core.dll', 'amdhip64_7.dll',
-    'libdlssnr_hip_bridge.so', 'dlssnr_on_amd_setup.exe',
+    'libdlssnr_hip_bridge.so', 'dlssnr_on_amd_setup.exe', 'hip_probe.exe',
 )
 PACKAGE_FILES = (
     'installer.py', 'install.sh', 'build_release.py', 'stage_upstream.py', 'README.md',
     'THIRD-PARTY.md', 'PROVENANCE.json',
     'dlssnr/cli.py', 'dlssnr/assets.py', 'dlssnr/conversion.py',
-    'dlssnr/deploy.py', 'dlssnr/games.py', 'dlssnr/kernels.py', 'dlssnr/runtime.py',
+    'dlssnr/deploy.py', 'dlssnr/games.py', 'dlssnr/kernels.py', 'dlssnr/runtime.py', 'dlssnr/runner_probe.py',
     'assets/manifest.json',
     'native/hip_bridge.c', 'native/hip_bridge.h',
+    'native/hip_probe.c', 'native/hip_probe_kernel32.def',
     'native/nr_ordered.c', 'native/nr_ordered.h',
     'sources/README.md', 'sources/fetch_vkd3d.py',
     'sources/vkd3d-proton-ordered.patch', 'sources/vkd3d-submodules.json',
@@ -67,7 +68,7 @@ def build_release(package_root, output_dir=None, *, components_root=None):
     manifest = json.loads(content['assets/manifest.json'])
     hashes = manifest.get('files')
     if not isinstance(hashes, dict) or set(hashes) != set(PAYLOADS):
-        raise ValueError('Manifest must contain exactly the six allowlisted payloads')
+        raise ValueError('Manifest must contain exactly the allowlisted payloads')
     for name, expected in hashes.items():
         if hashlib.sha256(content['assets/' + name]).hexdigest() != expected:
             raise ValueError('Payload SHA256 mismatch: ' + name)

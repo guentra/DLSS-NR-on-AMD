@@ -15,7 +15,7 @@ This development build uses upstream **v0.2.12**.
    ./install.sh
    ```
 
-3. Follow the wizard. It detects the game, asks which Wine/Proton version you use, and offers to install ROCm if needed.
+3. Follow the wizard. It detects the game, asks which Wine/Proton version you use, and checks HIP loading in a temporary runner prefix (including the Steam runtime required by Proton). If runtime libraries are unusable, it offers an isolated AMD ROCm download and checks it again. Your game prefix and system ROCm are not replaced.
 4. Copy the launch command it prints into your launcher:
    - **Steam:** paste **Steam launch options** into **Properties → General → Launch Options**. Select the same Proton in **Compatibility**.
    - **Lutris / another launcher:** paste **Command prefix** into its command-prefix field, without `%command%`. Keep your existing Wine/Proton version and prefix.

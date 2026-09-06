@@ -52,6 +52,10 @@ class DriverUnavailable(RuntimeError):
     """A different userspace wheel is not a remedy for this driver/device failure."""
 
 
+class RunnerDependencyError(RuntimeError):
+    """HIP loader/ABI failure confirmed inside the selected runner."""
+
+
 def _driver_error() -> str | None:
     kfd = Path('/dev/kfd')
     if not kfd.exists():
@@ -365,7 +369,8 @@ def _write_json(path: Path, data: dict):
             os.unlink(name)
 
 
-def ensure_runtime(cache_root: Path, supplied: Path | None = None, allow_install=False) -> dict:
+def ensure_runtime(cache_root: Path, supplied: Path | None = None, allow_install=False,
+                   runner_validator=None) -> dict:
     """Discover and validate, or install only with explicit consent. Raises RuntimeError.
 
     Successful state is recorded under cache_root, never in a game or global prefix.
@@ -375,6 +380,11 @@ def ensure_runtime(cache_root: Path, supplied: Path | None = None, allow_install
     cache_root = _safe(Path(cache_root).expanduser(), directory=True, missing=True)
     managed = cache_root/'rocm-venv'
     errors = []
+
+    def validate_runner(result):
+        if runner_validator is not None:
+            result = dict(result, runner_probe=runner_validator(result))
+        return result
 
     def record(result, wheel=None):
         if wheel is None and Path(result['library']).is_relative_to(managed):
@@ -398,10 +408,15 @@ def ensure_runtime(cache_root: Path, supplied: Path | None = None, allow_install
         candidates = discover_runtimes(managed_root=managed)
     for candidate in candidates:
         try:
-            return record(probe_runtime(candidate))
+            result = probe_runtime(candidate)
         except DriverUnavailable:
             raise
         except RuntimeError as exc:
+            errors.append(str(exc))
+            continue
+        try:
+            return record(validate_runner(result))
+        except RunnerDependencyError as exc:
             errors.append(str(exc))
     if supplied is not None:
         raise RuntimeError('; '.join(errors))
@@ -417,7 +432,7 @@ def ensure_runtime(cache_root: Path, supplied: Path | None = None, allow_install
     if not installed:
         raise RuntimeError('Installed AMD core wheel contains no discoverable HIP7 library')
     try:
-        return record(probe_runtime(installed[0]), wheel)
+        return record(validate_runner(probe_runtime(installed[0])), wheel)
     except RuntimeError as exc:
         raise RuntimeError(f'AMD core wheel installed but is not usable: {exc}. '
                            'No Torch/devel packages were installed. Supply a complete compatible '

@@ -2,6 +2,7 @@
   "version": "0.1.3-local",
   "mod_version": "0.2.12",
   "files": {
+    "hip_probe.exe": "e456b93716e08575fdf9cd4f6f9bb1c3c9b6e5e7ca48d7bc452a5333765d44f7",
     "version.dll": "7d2249e39fbb87e1a5084de7770a43bae8f1977d86f0353a055caba65f5c4667",
     "d3d12.dll": "fe2a268358e7bfff993e90df555eaa4f618fb813bcf9b669a22b71cbf6fc3577",
     "d3d12core.dll": "00c1f41d3e5b2c1ddd9cac50871169ad9fc2240c80796885dd5dafb1537d844b",
