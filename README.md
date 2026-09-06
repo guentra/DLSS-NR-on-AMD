@@ -27,7 +27,7 @@ This development build uses upstream **v0.2.12**.
 ## Requirements
 
 - Linux x86_64, Python 3.10+, Bash and glibc 2.34+.
-- An AMD GPU targeting `gfx1100`, `gfx1101`, `gfx1102` or `gfx1201`, with working drivers and GPU permissions.
+- An AMD GPU targeting `gfx1100`, `gfx1101`, `gfx1102`, `gfx1200` or `gfx1201`, with working drivers and GPU permissions.
 - A Windows x64 DirectX 12 game with FSR, already running through compatible Wine/Proton. Not every Wine build is supported. Detected anti-cheat blocks installation.
 - **3 GiB free** if ROCm needs downloading. The wizard handles ROCm, not your GPU driver or Wine/Proton installation. **Do not use `sudo`.**
 
